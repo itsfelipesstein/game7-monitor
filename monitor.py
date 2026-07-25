@@ -136,11 +136,12 @@ page.wait_for_timeout(5000)
 
                 time.sleep(2)
 
-        except Exception as erro:
 
-            print("Erro:", erro)
+except Exception as erro:
+    import traceback
+    traceback.print_exc()
+    continue
 
-            continue
     browser.close()
 
     if enviados == 0:
