@@ -7,7 +7,7 @@ import time
 # CONFIGURACAO
 # ==============================
 
-TOKEN = "8677381356:AAG8IrPEL2wEQLTzK GrymHGeo-b3KB9SXX0"
+TOKEN = "COLOQUE_SEU_TOKEN_AQUI"
 CHAT_ID = "8040951315"
 
 PRECO_MAXIMO = 120.00
@@ -17,15 +17,18 @@ URL = "https://www.amazon.com.br/s?k=game+7+nba&s=price-asc-rank"
 # ==============================
 
 def enviar(mensagem):
-    requests.post(
-        f"https://api.telegram.org/bot{TOKEN}/sendMessage",
-        data={
-            "chat_id": CHAT_ID,
-            "text": mensagem,
-            "disable_web_page_preview": False
-        },
-        timeout=30
-    )
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+            data={
+                "chat_id": CHAT_ID,
+                "text": mensagem,
+                "disable_web_page_preview": False
+            },
+            timeout=30
+        )
+    except Exception as e:
+        print("Erro Telegram:", e)
 
 
 def limpar_preco(texto):
@@ -41,20 +44,42 @@ def limpar_preco(texto):
     return None
 
 
-print("=" * 50)
+print("=" * 60)
 print("GAME 7 MONITOR")
-print("=" * 50)
+print("=" * 60)
 
 with sync_playwright() as p:
 
-    browser = p.chromium.launch(headless=True)
+    browser = p.chromium.launch(
+        headless=True,
+        args=[
+            "--disable-blink-features=AutomationControlled",
+            "--no-sandbox",
+            "--disable-dev-shm-usage"
+        ]
+    )
 
-    page = browser.new_page(
+    context = browser.new_context(
+
+        locale="pt-BR",
+
+        timezone_id="America/Sao_Paulo",
+
         viewport={
-            "width": 1400,
-            "height": 900
+            "width": 1366,
+            "height": 768
+        },
+
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+
+        extra_http_headers={
+            "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Upgrade-Insecure-Requests": "1"
         }
     )
+
+    page = context.new_page()
 
     page.goto(
         URL,
@@ -62,17 +87,47 @@ with sync_playwright() as p:
         timeout=120000
     )
 
-    page.wait_for_timeout(5000)
+    page.wait_for_timeout(8000)
 
-    print("Titulo:", page.title())
+    print("Titulo da pagina:", page.title())
+
+    print("URL final:", page.url)
 
     produtos = page.locator('[data-component-type="s-search-result"]')
 
     total = produtos.count()
 
-    print(f"Produtos encontrados: {total}")
+    print("Produtos encontrados:", total)
 
     enviados = 0
+    page.add_init_script("""
+        Object.defineProperty(navigator, 'webdriver', {
+            get: () => undefined
+        });
+
+        Object.defineProperty(navigator, 'languages', {
+            get: () => ['pt-BR', 'pt']
+        });
+
+        Object.defineProperty(navigator, 'platform', {
+            get: () => 'Win32'
+        });
+
+        Object.defineProperty(navigator, 'plugins', {
+            get: () => [1,2,3,4,5]
+        });
+    """)
+
+    page.reload(wait_until="domcontentloaded")
+
+    page.wait_for_timeout(5000)
+
+    produtos = page.locator('[data-component-type="s-search-result"]')
+
+    total = produtos.count()
+
+    print("Produtos encontrados apos reload:", total)
+
     for i in range(total):
 
         try:
@@ -84,7 +139,10 @@ with sync_playwright() as p:
 
             titulo = item.locator("h2").inner_text(timeout=3000)
 
-            if "game" not in titulo.lower() or "7" not in titulo:
+            if "game" not in titulo.lower():
+                continue
+
+            if "7" not in titulo:
                 continue
 
             preco_whole = ""
@@ -106,9 +164,9 @@ with sync_playwright() as p:
             if link:
                 link = "https://www.amazon.com.br" + link
 
-            print("-" * 40)
+            print("-" * 50)
             print(titulo)
-            print(preco)
+            print("Preco:", preco)
             print(link)
 
             if preco <= PRECO_MAXIMO:
@@ -117,7 +175,7 @@ with sync_playwright() as p:
                     "GAME 7 EM PROMOCAO!\n\n"
                     f"{titulo}\n\n"
                     f"Preco: R$ {preco:.2f}\n\n"
-                    f"Link: {link}"
+                    f"{link}"
                 )
 
                 enviar(mensagem)
@@ -130,22 +188,11 @@ with sync_playwright() as p:
             import traceback
             traceback.print_exc()
             continue
+    print("=" * 60)
+    print("Produtos enviados:", enviados)
+    print("=" * 60)
+
+    context.close()
     browser.close()
 
-if enviados == 0:
-
-    enviar(
-        "Nenhuma roupa GAME 7 encontrada abaixo do valor definido.\n\n"
-        f"Valor maximo: R$ {PRECO_MAXIMO:.2f}"
-    )
-
-else:
-
-    enviar(
-        "Monitor finalizado!\n\n"
-        f"Promocoes enviadas: {enviados}"
-    )
-
-print("=" * 50)
 print("Monitor finalizado.")
-print("=" * 50)
