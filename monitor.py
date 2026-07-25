@@ -1,23 +1,27 @@
 from playwright.sync_api import sync_playwright
 import requests
+import traceback
 import re
 import time
 
-# ==============================
-# CONFIGURACAO
-# ==============================
+# ==========================================
+# CONFIGURAÇÃO
+# ==========================================
 
-TOKEN = "COLOQUE_SEU_TOKEN_AQUI"
+TOKEN = "8677381356:AAG8IrPEL2wEQLTzK GrymHGeo-b3KB9SXX0"
 CHAT_ID = "8040951315"
 
-PRECO_MAXIMO = 120.00
+PRECO_MAXIMO = 115.00
 
-URL = "https://www.amazon.com.br/s?k=game+7+nba&s=price-asc-rank"
+URL = "https://www.amazon.com.br/s?k=game+7+nba"
 
-# ==============================
+# ==========================================
+
 
 def enviar(mensagem):
+
     try:
+
         requests.post(
             f"https://api.telegram.org/bot{TOKEN}/sendMessage",
             data={
@@ -27,11 +31,13 @@ def enviar(mensagem):
             },
             timeout=30
         )
-    except Exception as e:
-        print("Erro Telegram:", e)
+
+    except Exception as erro:
+        print("Erro Telegram:", erro)
 
 
 def limpar_preco(texto):
+
     texto = texto.replace("R$", "")
     texto = texto.replace(".", "")
     texto = texto.replace(",", ".")
@@ -53,7 +59,6 @@ with sync_playwright() as p:
     browser = p.chromium.launch(
         headless=True,
         args=[
-            "--disable-blink-features=AutomationControlled",
             "--no-sandbox",
             "--disable-dev-shm-usage"
         ]
@@ -70,16 +75,12 @@ with sync_playwright() as p:
             "height": 768
         },
 
-        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-
-        extra_http_headers={
-            "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Upgrade-Insecure-Requests": "1"
-        }
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
     )
 
     page = context.new_page()
+
+    print("Abrindo Amazon...")
 
     page.goto(
         URL,
@@ -89,9 +90,8 @@ with sync_playwright() as p:
 
     page.wait_for_timeout(8000)
 
-    print("Titulo da pagina:", page.title())
-
-    print("URL final:", page.url)
+    print("Título:", page.title())
+    print("URL:", page.url)
 
     produtos = page.locator('[data-component-type="s-search-result"]')
 
@@ -100,34 +100,6 @@ with sync_playwright() as p:
     print("Produtos encontrados:", total)
 
     enviados = 0
-    page.add_init_script("""
-        Object.defineProperty(navigator, 'webdriver', {
-            get: () => undefined
-        });
-
-        Object.defineProperty(navigator, 'languages', {
-            get: () => ['pt-BR', 'pt']
-        });
-
-        Object.defineProperty(navigator, 'platform', {
-            get: () => 'Win32'
-        });
-
-        Object.defineProperty(navigator, 'plugins', {
-            get: () => [1,2,3,4,5]
-        });
-    """)
-
-    page.reload(wait_until="domcontentloaded")
-
-    page.wait_for_timeout(5000)
-
-    produtos = page.locator('[data-component-type="s-search-result"]')
-
-    total = produtos.count()
-
-    print("Produtos encontrados apos reload:", total)
-
     for i in range(total):
 
         try:
@@ -137,19 +109,29 @@ with sync_playwright() as p:
             if item.locator("h2").count() == 0:
                 continue
 
-            titulo = item.locator("h2").inner_text(timeout=3000)
+            titulo = item.locator("h2").inner_text().strip()
 
-            if "game" not in titulo.lower():
+            titulo_lower = titulo.lower()
+
+            # ===========================
+            # FILTROS
+            # ===========================
+
+            if "game 7" not in titulo_lower:
                 continue
 
-            if "7" not in titulo:
+            if "nba" not in titulo_lower:
                 continue
 
-            preco_whole = ""
-            preco_fraction = ""
+            if "mascul" not in titulo_lower:
+                continue
 
-            if item.locator(".a-price-whole").count() > 0:
-                preco_whole = item.locator(".a-price-whole").first.inner_text()
+            if item.locator(".a-price-whole").count() == 0:
+                continue
+
+            preco_whole = item.locator(".a-price-whole").first.inner_text()
+
+            preco_fraction = "00"
 
             if item.locator(".a-price-fraction").count() > 0:
                 preco_fraction = item.locator(".a-price-fraction").first.inner_text()
@@ -159,38 +141,47 @@ with sync_playwright() as p:
             if preco is None:
                 continue
 
-            link = item.locator("h2 a").get_attribute("href")
+            if preco > PRECO_MAXIMO:
+                continue
 
-            if link:
-                link = "https://www.amazon.com.br" + link
+            link = ""
 
-            print("-" * 50)
+            if item.locator("h2 a").count() > 0:
+
+                href = item.locator("h2 a").first.get_attribute("href")
+
+                if href:
+                    link = "https://www.amazon.com.br" + href
+
+            print("-" * 60)
             print(titulo)
-            print("Preco:", preco)
+            print(f"Preço: R$ {preco:.2f}")
             print(link)
 
-            if preco <= PRECO_MAXIMO:
+            mensagem = (
+                "🏀 GAME 7 ENCONTRADA!\n\n"
+                f"{titulo}\n\n"
+                f"💰 R$ {preco:.2f}\n\n"
+                f"{link}"
+            )
 
-                mensagem = (
-                    "GAME 7 EM PROMOCAO!\n\n"
-                    f"{titulo}\n\n"
-                    f"Preco: R$ {preco:.2f}\n\n"
-                    f"{link}"
-                )
+            enviar(mensagem)
 
-                enviar(mensagem)
+            enviados += 1
 
-                enviados += 1
-
-                time.sleep(2)
+            time.sleep(2)
 
         except Exception:
-            import traceback
+
             traceback.print_exc()
+
             continue
     print("=" * 60)
-    print("Produtos enviados:", enviados)
+    print(f"Total de alertas enviados: {enviados}")
     print("=" * 60)
+
+    if enviados == 0:
+        print("Nenhum produto encontrado dentro dos filtros.")
 
     context.close()
     browser.close()
