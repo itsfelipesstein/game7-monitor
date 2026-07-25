@@ -82,18 +82,23 @@ with sync_playwright() as p:
 
     print("Abrindo Amazon...")
 
-    page.goto(
-        URL,
-        wait_until="domcontentloaded",
-        timeout=120000
-    )
+page.goto(
+    URL,
+    wait_until="domcontentloaded",
+    timeout=120000
+)
 
-    page.wait_for_timeout(8000)
+page.wait_for_timeout(8000)
 
-    print("Título:", page.title())
-    print("URL:", page.url)
+print("Título:", page.title())
+print("URL:", page.url)
 
-    produtos = page.locator('[data-component-type="s-search-result"]')
+print("=" * 50)
+print("HTML recebido:")
+print(page.content()[:1500])
+print("=" * 50)
+
+produtos = page.locator('[data-component-type="s-search-result"]')
 
     total = produtos.count()
 
