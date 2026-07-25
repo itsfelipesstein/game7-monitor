@@ -4,7 +4,7 @@ import re
 import time
 
 # ==============================
-# CONFIGURAÇÃO
+# CONFIGURACAO
 # ==============================
 
 TOKEN = "8677381356:AAG8IrPEL2wEQLTzK GrymHGeo-b3KB9SXX0"
@@ -33,23 +33,21 @@ def limpar_preco(texto):
     texto = texto.replace(".", "")
     texto = texto.replace(",", ".")
 
-    numero = re.findall(r"\d+\.\d+|\d+", texto)
+    numeros = re.findall(r"\d+\.\d+|\d+", texto)
 
-    if numero:
-        return float(numero[0])
+    if numeros:
+        return float(numeros[0])
 
     return None
 
 
 print("=" * 50)
-print("GAME7 MONITOR")
+print("GAME 7 MONITOR")
 print("=" * 50)
 
 with sync_playwright() as p:
 
-    browser = p.chromium.launch(
-        headless=True
-    )
+    browser = p.chromium.launch(headless=True)
 
     page = browser.new_page(
         viewport={
@@ -59,17 +57,15 @@ with sync_playwright() as p:
     )
 
     page.goto(
-    URL,
-    wait_until="domcontentloaded",
-    timeout=120000
-)
-
-page.wait_for_timeout(5000)
+        URL,
+        wait_until="domcontentloaded",
+        timeout=120000
     )
 
-    page.wait_for_timeout(3000)
+    page.wait_for_timeout(5000)
 
-    print(page.title())
+    print("Titulo:", page.title())
+
     produtos = page.locator('[data-component-type="s-search-result"]')
 
     total = produtos.count()
@@ -77,23 +73,21 @@ page.wait_for_timeout(5000)
     print(f"Produtos encontrados: {total}")
 
     enviados = 0
-
     for i in range(total):
 
         try:
 
             item = produtos.nth(i)
 
-            titulo = item.locator("h2").inner_text(timeout=3000)
-
-            if "game" not in titulo.lower():
+            if item.locator("h2").count() == 0:
                 continue
 
-            if "7" not in titulo:
+            titulo = item.locator("h2").inner_text(timeout=3000)
+
+            if "game" not in titulo.lower() or "7" not in titulo:
                 continue
 
             preco_whole = ""
-
             preco_fraction = ""
 
             if item.locator(".a-price-whole").count() > 0:
@@ -102,9 +96,7 @@ page.wait_for_timeout(5000)
             if item.locator(".a-price-fraction").count() > 0:
                 preco_fraction = item.locator(".a-price-fraction").first.inner_text()
 
-            preco_texto = f"{preco_whole},{preco_fraction}"
-
-            preco = limpar_preco(preco_texto)
+            preco = limpar_preco(f"{preco_whole},{preco_fraction}")
 
             if preco is None:
                 continue
@@ -114,21 +106,19 @@ page.wait_for_timeout(5000)
             if link:
                 link = "https://www.amazon.com.br" + link
 
+            print("-" * 40)
             print(titulo)
             print(preco)
             print(link)
-            print("-" * 40)
 
             if preco <= PRECO_MAXIMO:
 
-                mensagem = f"""🏀 GAME 7
-
-{titulo}
-
-💰 R$ {preco:.2f}
-
-🔗 {link}
-"""
+                mensagem = (
+                    "GAME 7 EM PROMOCAO!\n\n"
+                    f"{titulo}\n\n"
+                    f"Preco: R$ {preco:.2f}\n\n"
+                    f"Link: {link}"
+                )
 
                 enviar(mensagem)
 
@@ -136,27 +126,25 @@ page.wait_for_timeout(5000)
 
                 time.sleep(2)
 
-
-except Exception as erro:
-    import traceback
-    traceback.print_exc()
-    continue
-
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            continue
     browser.close()
 
-    if enviados == 0:
+if enviados == 0:
 
-        enviar(
-            "😕 Nenhuma roupa GAME 7 foi encontrada abaixo do valor definido.\n\n"
-            f"Valor máximo: R$ {PRECO_MAXIMO:.2f}"
-        )
+    enviar(
+        "Nenhuma roupa GAME 7 encontrada abaixo do valor definido.\n\n"
+        f"Valor maximo: R$ {PRECO_MAXIMO:.2f}"
+    )
 
-    else:
+else:
 
-        enviar(
-            f"✅ Monitor finalizado!\n\n"
-            f"Promoções enviadas: {enviados}"
-        )
+    enviar(
+        "Monitor finalizado!\n\n"
+        f"Promocoes enviadas: {enviados}"
+    )
 
 print("=" * 50)
 print("Monitor finalizado.")
