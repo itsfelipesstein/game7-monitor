@@ -59,9 +59,12 @@ with sync_playwright() as p:
     )
 
     page.goto(
-        URL,
-        wait_until="networkidle",
-        timeout=60000
+    URL,
+    wait_until="domcontentloaded",
+    timeout=120000
+)
+
+page.wait_for_timeout(5000)
     )
 
     page.wait_for_timeout(3000)
