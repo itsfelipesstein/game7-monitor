@@ -1,14 +1,29 @@
+from playwright.sync_api import sync_playwright
 import requests
-from bs4 import BeautifulSoup
+import os
 
-url = "https://www.amazon.com.br/s?k=game+7+nba"
+TOKEN = os.getenv("8677381356:AAG8IrPEL2wEQLTzK GrymHGeo-b3KB9SXX0")
+CHAT_ID = os.getenv("8040951315")
 
-headers = {
-    "User-Agent": "Mozilla/5.0"
-}
+URL = "https://www.amazon.com.br/s?k=game+7+nba&s=price-asc-rank"
 
-r = requests.get(url, headers=headers)
+def enviar(msg):
+    requests.post(
+        f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+        data={
+            "chat_id": CHAT_ID,
+            "text": msg,
+            "disable_web_page_preview": True
+        }
+    )
 
-print("Status:", r.status_code)
-print(r.text[:1000])  # Mostra os primeiros 1000 caracteres da página
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
 
+    page = browser.new_page()
+
+    page.goto(URL, wait_until="networkidle")
+
+    print(page.title())
+
+    browser.close()
