@@ -63,14 +63,14 @@ def buscar():
     for produto in produtos:
 
         try:
-            titulo = produto.select_one("h2 span")
+            link_tag = produto.select_one("h2 a")
 
-            if titulo is None:
-                continue
+        if link_tag is None:
+            continue
 
-            titulo = titulo.get_text(strip=True)
+        titulo = link_tag.get_text(" ", strip=True)
 
-            titulo_lower = titulo.lower()
+        titulo_lower = titulo.lower()
 
             # Filtro GAME 7
             if "game" not in titulo_lower or "7" not in titulo_lower:
@@ -96,8 +96,8 @@ def buscar():
             # Link
             link = produto.select_one("h2 a")
 
-            if link:
-                link = "https://www.amazon.com.br" + link["href"]
+            if link_tag.has_attr("href"):
+                link = "https://www.amazon.com.br" + link_tag["href"]
             else:
                 link = "Sem link"
 
